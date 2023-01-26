@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
 use crate::pieces::{Piece, PieceColor, PieceType};
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableBundle, PickingCamera};
-#[derive(Component)]
+use std::collections::{HashMap, HashSet};
+#[derive(Component, Debug)]
 pub struct Square {
     pub x: u8,
     pub y: u8,
@@ -51,7 +51,7 @@ pub struct SelectedSquare {
 
 #[derive(Default, Resource)]
 pub struct HighlightedSquares {
-    entities: Vec<(u8, u8)>,
+    entities: HashSet<(u8, u8)>,
 }
 
 #[derive(Default, Resource)]
@@ -148,7 +148,7 @@ fn select_square(
         if let Some((square_entity, _intersection)) = picking_camera.get_nearest_intersection() {
             if let Ok(_square) = squares_query.get(square_entity) {
                 // Mark it as selected
-                println!("select_square");
+                println!("select_square: {:?}", _square);
                 selected_square.entity = Some(square_entity);
             }
         } else {
@@ -192,14 +192,16 @@ fn select_piece(
         for (piece_entity, piece) in pieces_query.iter() {
             if piece.x == square.x && piece.y == square.y && piece.color == turn.0 {
                 // high
-                let pieces_map = pieces_query.iter().map(|(e, p)|  ((p.x, p.y), p)).collect::<HashMap<(u8, u8), &Piece>>();
+                let pieces_map = pieces_query
+                    .iter()
+                    .map(|(e, p)| ((p.x, p.y), p))
+                    .collect::<HashMap<(u8, u8), &Piece>>();
                 println!("Selected piece {:?}", piece);
                 highlighted_squares.entities = piece.possible_moves(pieces_map);
                 // piece_entity is now the entity in the same square
                 selected_piece.entity = Some(piece_entity);
                 break;
             }
-
         }
     }
 }
@@ -208,6 +210,7 @@ fn move_piece(
     mut commands: Commands,
     selected_square: Res<SelectedSquare>,
     selected_piece: Res<SelectedPiece>,
+    highlighted_squares: ResMut<HighlightedSquares>,
     mut turn: ResMut<PlayerTurn>,
     squares_query: Query<&Square>,
     mut pieces_query: Query<(Entity, &mut Piece)>,
@@ -230,7 +233,6 @@ fn move_piece(
     };
 
     if let Some(selected_piece_entity) = selected_piece.entity {
-        let pieces_vec = pieces_query.iter_mut().map(|(_, piece)| *piece).collect();
         let pieces_entity_vec = pieces_query
             .iter_mut()
             .map(|(entity, piece)| (entity, *piece))
@@ -243,7 +245,7 @@ fn move_piece(
                 return;
             };
 
-        if piece.is_move_valid((square.x, square.y), pieces_vec) {
+        if highlighted_squares.entities.contains(&(square.x, square.y)) {
             // Check if a piece of the opposite color exists in this square and despawn it
             for (other_entity, other_piece) in pieces_entity_vec {
                 if other_piece.x == square.x

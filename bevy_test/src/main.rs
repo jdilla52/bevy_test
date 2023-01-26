@@ -34,8 +34,8 @@ fn main() {
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
-                width: 1600.0,
-                height: 1600.0,
+                width: 1000.0,
+                height: 1000.0,
                 ..default()
             },
             ..default()
