@@ -6,7 +6,7 @@ use bevy::prelude::{Color, Commands, Component, Mesh, Res, ResMut, Transform};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceType {
     Pawn,
     Rook,
@@ -16,15 +16,13 @@ pub enum PieceType {
     King,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceColor {
     White,
     Black,
 }
 
-
-
-fn color_of_square(pos:(u8, u8), pieces: &Vec<Piece>) -> Option<PieceColor> {
+fn color_of_square(pos: (u8, u8), pieces: &Vec<Piece>) -> Option<PieceColor> {
     for piece in pieces {
         if piece.x == pos.0 && piece.y == pos.1 {
             return Some(piece.color);
@@ -35,16 +33,22 @@ fn color_of_square(pos:(u8, u8), pieces: &Vec<Piece>) -> Option<PieceColor> {
 
 fn is_path_empty(begin: (u8, u8), end: (u8, u8), pieces: &Vec<Piece>) -> bool {
     if begin.0 == end.0 {
-        for piece in pieces{
-            if piece.x == begin.0 && ((piece.y > begin.1 && piece.y < end.1) || (piece.y > end.1 && piece.y > begin.1)){
+        for piece in pieces {
+            if piece.x == begin.0
+                && ((piece.y > begin.1 && piece.y < end.1)
+                    || (piece.y > end.1 && piece.y > begin.1))
+            {
                 return false;
             }
         }
     }
 
     if begin.1 == end.1 {
-        for piece in pieces{
-            if piece.y == begin.1 && ((piece.x > begin.0 && piece.x < end.0) || (piece.x > end.0 && piece.x > begin.0)){
+        for piece in pieces {
+            if piece.y == begin.1
+                && ((piece.x > begin.0 && piece.x < end.0)
+                    || (piece.x > end.0 && piece.x > begin.0))
+            {
                 return false;
             }
         }
@@ -71,8 +75,7 @@ fn is_path_empty(begin: (u8, u8), end: (u8, u8), pieces: &Vec<Piece>) -> bool {
     true
 }
 
-
-#[derive(Clone, Copy, Component)]
+#[derive(Debug, Clone, Copy, Component)]
 pub struct Piece {
     pub piece_type: PieceType,
     pub color: PieceColor,
@@ -81,7 +84,7 @@ pub struct Piece {
 }
 
 impl Piece {
-    pub fn is_move_valid(&self, new_position: (u8, u8), pieces: Vec<Piece>)-> bool {
+    pub fn is_move_valid(&self, new_position: (u8, u8), pieces: Vec<Piece>) -> bool {
         match self.piece_type {
             PieceType::Pawn => {
                 if self.color == PieceColor::White {
@@ -145,29 +148,29 @@ impl Piece {
             PieceType::Rook => {
                 is_path_empty((self.x, self.y), new_position, &pieces)
                     && ((self.x == new_position.0 && self.y != new_position.1)
-                    || (self.y == new_position.1 && self.x != new_position.0))
+                        || (self.y == new_position.1 && self.x != new_position.0))
             }
             PieceType::Knight => {
                 ((self.x as i8 - new_position.0 as i8).abs() == 2
                     && (self.y as i8 - new_position.1 as i8).abs() == 1)
                     || ((self.x as i8 - new_position.0 as i8).abs() == 1
-                    && (self.y as i8 - new_position.1 as i8).abs() == 2)
+                        && (self.y as i8 - new_position.1 as i8).abs() == 2)
             }
             PieceType::Bishop => {
                 is_path_empty((self.x, self.y), new_position, &pieces)
                     && (self.x as i8 - new_position.0 as i8).abs()
-                    == (self.y as i8 - new_position.1 as i8).abs()
+                        == (self.y as i8 - new_position.1 as i8).abs()
             }
             PieceType::Queen => {
                 is_path_empty((self.x, self.y), new_position, &pieces)
                     && ((self.x as i8 - new_position.0 as i8).abs()
-                    == (self.y as i8 - new_position.1 as i8).abs()
-                    || ((self.x == new_position.0 && self.y != new_position.1)
-                    || (self.y == new_position.1 && self.x != new_position.0)))
+                        == (self.y as i8 - new_position.1 as i8).abs()
+                        || ((self.x == new_position.0 && self.y != new_position.1)
+                            || (self.y == new_position.1 && self.x != new_position.0)))
             }
             PieceType::King => {
-                    // Horizontal
-                    ((self.x as i8 - new_position.0 as i8).abs() == 1
+                // Horizontal
+                ((self.x as i8 - new_position.0 as i8).abs() == 1
                         && (self.y == new_position.1))
                         // Vertical
                         || ((self.y as i8 - new_position.1 as i8).abs() == 1
@@ -179,8 +182,6 @@ impl Piece {
         }
     }
 }
-
-
 
 pub fn spawn_two(
     commands: Rc<RefCell<Commands>>,
@@ -218,7 +219,7 @@ pub fn spawn_two(
             });
             parent.spawn(PbrBundle {
                 mesh: mesh_cross,
-                material: material.clone(),
+                material,
                 transform: {
                     let mut transform = Transform::from_translation(transform2);
                     transform.scale *= Vec3::new(0.2, 0.2, 0.2);
@@ -253,7 +254,7 @@ fn spawn_one(
         .with_children(|parent| {
             parent.spawn(PbrBundle {
                 mesh,
-                material: material.clone(),
+                material,
                 transform: {
                     let mut transform = Transform::from_translation(transform);
                     transform.scale *= Vec3::new(0.2, 0.2, 0.2);
@@ -473,11 +474,11 @@ pub fn create_pieces(
 }
 use bevy::prelude::*;
 
-fn move_pieces(time: Res<Time>, mut query: Query<(&mut Transform, &Piece)>){
-    for (mut transform, piece) in query.iter_mut(){
-        let direction = Vec3::new(piece.x as f32, 0., piece.y as f32);
+fn move_pieces(time: Res<Time>, mut query: Query<(&mut Transform, &Piece)>) {
+    for (mut transform, piece) in query.iter_mut() {
+        let direction = Vec3::new(piece.x as f32, 0., piece.y as f32) - transform.translation;
 
-        if direction.length() > 0.1{
+        if direction.length() > 0.1 {
             transform.translation += direction.normalize() * time.delta_seconds();
         }
     }

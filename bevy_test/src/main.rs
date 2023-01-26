@@ -3,9 +3,11 @@ mod example;
 mod pieces;
 mod ui;
 
+use crate::pieces::PiecesPlugin;
+use crate::ui::ChessUIPlugin;
 use bevy::prelude::*;
-use bevy::ui::UiPlugin;
 use bevy_mod_picking::*;
+use board::BoardPlugin;
 
 fn setup(mut commands: Commands) {
     commands.spawn((
@@ -23,9 +25,6 @@ fn setup(mut commands: Commands) {
         ..Default::default()
     });
 }
-
-use board::BoardPlugin;
-use crate::pieces::PiecesPlugin;
 
 fn main() {
     App::new()
@@ -45,9 +44,7 @@ fn main() {
         .add_plugin(InteractablePickingPlugin)
         .add_plugin(BoardPlugin)
         .add_plugin(PiecesPlugin)
-        // .add_plugin(UiPlugin)
+        .add_plugin(ChessUIPlugin)
         .add_startup_system(setup)
-        .add_startup_system(pieces::create_pieces)
-        // .add_plugin(PersonPlugin)
         .run();
 }

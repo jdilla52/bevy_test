@@ -1,14 +1,7 @@
-use bevy::app::{App, AppExit, Plugin};
-use bevy::asset::{Assets, Handle};
-use bevy::input::Input;
-use bevy::math::Vec3;
-use bevy::pbr::{PbrBundle, StandardMaterial};
-use bevy::prelude::{shape, Color, Commands, Component, Entity, FromWorld, Mesh, MouseButton, Query, Res, ResMut, Resource, Transform, World, EventWriter, EventReader};
-use bevy_mod_picking::{PickableBundle, PickingCamera};
 use crate::pieces::{Piece, PieceColor, PieceType};
-
+use bevy::app::AppExit;
 use bevy::prelude::*;
-
+use bevy_mod_picking::{PickableBundle, PickingCamera};
 #[derive(Component)]
 pub struct Square {
     pub x: u8,
@@ -59,7 +52,6 @@ pub struct SelectedSquare {
 struct SelectedPiece {
     entity: Option<Entity>,
 }
-
 
 #[derive(Resource)]
 pub struct PlayerTurn(pub PieceColor);
@@ -129,13 +121,11 @@ fn color_squares(
     }
 }
 
-
 fn select_square(
     mouse_button_inputs: Res<Input<MouseButton>>,
     mut selected_square: ResMut<SelectedSquare>,
     mut selected_piece: ResMut<SelectedPiece>,
     squares_query: Query<&Square>,
-    mut pieces_query: Query<(Entity, &mut Piece)>,
     picking_camera_query: Query<&PickingCamera>,
 ) {
     // Only run if the left button is pressed
@@ -148,6 +138,7 @@ fn select_square(
         if let Some((square_entity, _intersection)) = picking_camera.get_nearest_intersection() {
             if let Ok(_square) = squares_query.get(square_entity) {
                 // Mark it as selected
+                println!("select_square");
                 selected_square.entity = Some(square_entity);
             }
         } else {
@@ -157,7 +148,6 @@ fn select_square(
         }
     }
 }
-
 
 fn select_piece(
     selected_square: Res<SelectedSquare>,
@@ -186,6 +176,7 @@ fn select_piece(
         // Select the piece in the currently selected square
         for (piece_entity, piece) in pieces_query.iter() {
             if piece.x == square.x && piece.y == square.y && piece.color == turn.0 {
+                println!("Selected piece {:?}", piece);
                 // piece_entity is now the entity in the same square
                 selected_piece.entity = Some(piece_entity);
                 break;
@@ -240,6 +231,7 @@ fn move_piece(
                     && other_piece.y == square.y
                     && other_piece.color != piece.color
                 {
+                    println!("taking piece {:?}", other_piece);
                     // Mark the piece as taken
                     commands.entity(other_entity).insert(Taken);
                 }
@@ -249,6 +241,7 @@ fn move_piece(
             piece.x = square.x;
             piece.y = square.y;
 
+            println!("moving piece {:?}", piece);
             // Change turn
             turn.change();
         }
@@ -256,7 +249,6 @@ fn move_piece(
         reset_selected_event.send(ResetSelectedEvent);
     }
 }
-
 
 struct ResetSelectedEvent;
 
@@ -306,11 +298,17 @@ impl Plugin for BoardPlugin {
             .init_resource::<PlayerTurn>()
             .add_event::<ResetSelectedEvent>()
             .add_startup_system(create_board)
-            .add_system(color_squares)
-            .add_system(select_square.label("select_square"))
-            .add_system(move_piece.after("select_piece"))
-            .add_system(select_piece.after("select_piece"))
-            .add_system(despawn_taken_pieces)
-            .add_system(reset_selected.after("select_square"));
+            .add_system_to_stage(CoreStage::PostUpdate, color_squares)
+            .add_system_to_stage(CoreStage::PostUpdate, select_square)
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                move_piece.after(select_square).before(select_piece),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, select_piece.after(select_square))
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                despawn_taken_pieces.after(move_piece),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, reset_selected.after(select_square));
     }
 }
