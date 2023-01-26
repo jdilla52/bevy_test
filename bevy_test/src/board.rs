@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use crate::pieces::{Piece, PieceColor, PieceType};
 use bevy::app::AppExit;
 use bevy::prelude::*;
@@ -49,6 +50,11 @@ pub struct SelectedSquare {
 }
 
 #[derive(Default, Resource)]
+pub struct HighlightedSquares {
+    entities: Vec<(u8, u8)>,
+}
+
+#[derive(Default, Resource)]
 struct SelectedPiece {
     entity: Option<Entity>,
 }
@@ -94,6 +100,7 @@ impl FromWorld for SquareMaterials {
 
 fn color_squares(
     selected_square: Res<SelectedSquare>,
+    highlighted_squares: Res<HighlightedSquares>,
     materials: Res<SquareMaterials>,
     mut query: Query<(Entity, &Square, &mut Handle<StandardMaterial>)>,
     picking_camera_query: Query<&PickingCamera>,
@@ -113,6 +120,8 @@ fn color_squares(
             materials.highlight_color.clone()
         } else if Some(entity) == selected_square.entity {
             materials.selected_color.clone()
+        } else if highlighted_squares.entities.contains(&(square.x, square.y)) {
+            materials.highlight_color.clone()
         } else if square.is_white() {
             materials.white_color.clone()
         } else {
@@ -125,6 +134,7 @@ fn select_square(
     mouse_button_inputs: Res<Input<MouseButton>>,
     mut selected_square: ResMut<SelectedSquare>,
     mut selected_piece: ResMut<SelectedPiece>,
+    mut highlighted_squares: ResMut<HighlightedSquares>,
     squares_query: Query<&Square>,
     picking_camera_query: Query<&PickingCamera>,
 ) {
@@ -145,6 +155,7 @@ fn select_square(
             // Player clicked outside the board, deselect everything
             selected_square.entity = None;
             selected_piece.entity = None;
+            highlighted_squares.entities.clear();
         }
     }
 }
@@ -152,6 +163,7 @@ fn select_square(
 fn select_piece(
     selected_square: Res<SelectedSquare>,
     mut selected_piece: ResMut<SelectedPiece>,
+    mut highlighted_squares: ResMut<HighlightedSquares>,
     turn: Res<PlayerTurn>,
     squares_query: Query<&Square>,
     pieces_query: Query<(Entity, &Piece)>,
@@ -172,15 +184,22 @@ fn select_piece(
         return;
     };
 
+    // always clear the highlighted squares
+    highlighted_squares.entities.clear();
+
     if selected_piece.entity.is_none() {
         // Select the piece in the currently selected square
         for (piece_entity, piece) in pieces_query.iter() {
             if piece.x == square.x && piece.y == square.y && piece.color == turn.0 {
+                // high
+                let pieces_map = pieces_query.iter().map(|(e, p)|  ((p.x, p.y), p)).collect::<HashMap<(u8, u8), &Piece>>();
                 println!("Selected piece {:?}", piece);
+                highlighted_squares.entities = piece.possible_moves(pieces_map);
                 // piece_entity is now the entity in the same square
                 selected_piece.entity = Some(piece_entity);
                 break;
             }
+
         }
     }
 }
@@ -293,6 +312,7 @@ pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedSquare>()
+            .init_resource::<HighlightedSquares>()
             .init_resource::<SelectedPiece>()
             .init_resource::<SquareMaterials>()
             .init_resource::<PlayerTurn>()

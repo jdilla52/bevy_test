@@ -4,6 +4,7 @@ use bevy::math::Vec3;
 use bevy::pbr::{PbrBundle, StandardMaterial};
 use bevy::prelude::{Color, Commands, Component, Mesh, Res, ResMut, Transform};
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,7 +84,258 @@ pub struct Piece {
     pub y: u8,
 }
 
+const KNIGHT_MOVES: [(i8, i8); 8] = [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)];
+
+const KING_MOVES: [(i8, i8); 8] = [
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+];
+
 impl Piece {
+    pub fn possible_moves(&self, pieces: HashMap<(u8, u8), &Piece>)-> Vec<(u8, u8)> {
+        // todo add takes
+        match &self.piece_type {
+            PieceType::Pawn => {
+                let mut moves = vec![];
+                if self.color == PieceColor::Black {
+                    let y1 = self.y as i8 - 1;
+                    if y1 >= 0 {
+                        let y1 = y1 as u8;
+                        if let Some(p) = pieces.get(&(self.x, y1)) {
+                            if p.color != self.color {
+                                moves.push((self.x, y1));
+                            }
+                        } else {
+                            moves.push((self.x, y1));
+                        }
+                    } else if self.y == 6 {
+                        // todo implement en passant
+
+                        let y2 = self.y as i8 - 2;
+                        let uy2 = y2 as u8;
+                        if let Some(p) = pieces.get(&(self.x, uy2)) {
+                            if p.color != self.color {
+                                moves.push((self.x, uy2));
+                            }
+                        } else {
+                            moves.push((self.x, uy2));
+                        }
+                    }
+                } else {
+                    let y1 = self.y as i8 + 1;
+                    if y1 <= 7 {
+                        let y1 = y1 as u8;
+                        if let Some(p) = pieces.get(&(self.x, y1)) {
+                            if p.color != self.color {
+                                moves.push((self.x, y1));
+                            }
+                        } else {
+                            moves.push((self.x, y1));
+                        }
+                    } else if self.y == 1 {
+                        // todo implement en passant
+                        let y2 = self.y as i8 + 2;
+                        let uy2 = y2 as u8;
+                        if let Some(p) = pieces.get(&(self.x, uy2)) {
+                            if p.color != self.color {
+                                moves.push((self.x, uy2));
+                            }
+                        } else {
+                            moves.push((self.x, uy2));
+                        }
+                    }
+                }
+                moves
+            }
+            PieceType::Rook => {
+                let mut moves = vec![];
+                for i in self.x + 1..8 {
+                    if pieces.get(&(i, self.y)).is_some() {
+                        break;
+                    }
+                    moves.push((i, self.y));
+                }
+                for i in 0..self.x {
+                    if pieces.get(&(i, self.y)).is_some() {
+                        break;
+                    }
+                    moves.push((i, self.y));
+                }
+                for i in self.y + 1..8 {
+                    if pieces.get(&(self.x, i)).is_some() {
+                        break;
+                    }
+                    moves.push((self.x, i));
+                }
+                for i in 0..self.y {
+                    if pieces.get(&(self.x, i)).is_some() {
+                        break;
+                    }
+                    moves.push((self.x, i));
+                }
+                moves
+            },
+            PieceType::Knight => {
+                let mut moves = vec![];
+                for i in KNIGHT_MOVES {
+                    let pos = (self.x as i8 + i.0, self.y as i8 + i.1);
+                    if pos.0 >= 0 && pos.0  < 8 && pos.1 >= 0 && pos.1 < 8 {
+                        if pieces.get(&(pos.0 as u8, pos.1 as u8)).is_none() {
+                            moves.push((pos.0 as u8, pos.1 as u8));
+                        }
+                    }
+                }
+                moves
+            }
+            PieceType::Bishop => {
+                let mut moves = vec![];
+
+                let sx = self.x as i8;
+                let sy = self.y as i8;
+
+                for i in 1..8 {
+                    let x = sx+i;
+                    let y = sy-i;
+                    if x > 7 || y < 0 {
+                        break;
+                    } else if let Some(p) = pieces.get(&(x as u8, y as u8)) {
+                        if p.color != self.color {
+                            moves.push((x as u8, y as u8));
+                        }
+                        break;
+                    }
+                    moves.push((x as u8, y as u8));
+                }
+
+                for i in 1..8 {
+                    let x = sx-i;
+                    let y = sy+i;
+                    if x < 0 || y > 7 {
+                        break;
+                    } else if let Some(p) = pieces.get(&(x as u8, y as u8)) {
+                        if p.color != self.color {
+                            moves.push((x as u8, y as u8));
+                        }
+                        break;
+                    }
+                    moves.push((x as u8, y as u8));
+                }
+
+                for i in 1..8 {
+                    let x = sx+i;
+                    let y = sy-i;
+                    if x < 7 || y < 0 {
+                        break;
+                    } else if let Some(p) = pieces.get(&(x as u8, y as u8)) {
+                        if p.color != self.color {
+                            moves.push((x as u8, y as u8));
+                        }
+                        break;
+                    }
+                    moves.push((x as u8, y as u8));
+                }
+
+                for i in 1..8 {
+                    let x = sx-i;
+                    let y = sy-i;
+                    if x < 0 || y < 0 {
+                        break;
+                    } else if let Some(p) = pieces.get(&(x as u8, y as u8)) {
+                        if p.color != self.color {
+                            moves.push((x as u8, y as u8));
+                        }
+                        break;
+                    }
+                    moves.push((x as u8, y as u8));
+                }
+
+                moves
+            },
+            PieceType::Queen => {
+                let mut moves = vec![];
+                for i in self.x + 1..8 {
+                    if pieces.get(&(i, self.y)).is_some() {
+                        break;
+                    }
+                    moves.push((i, self.y));
+                }
+                for i in 0..self.x {
+                    if pieces.get(&(i, self.y)).is_some() {
+                        break;
+                    }
+                    moves.push((i, self.y));
+                }
+                for i in self.y + 1..8 {
+                    if pieces.get(&(self.x, i)).is_some() {
+                        break;
+                    }
+                    moves.push((self.x, i));
+                }
+                for i in 0..self.y {
+                    if pieces.get(&(self.x, i)).is_some() {
+                        break;
+                    }
+                    moves.push((self.x, i));
+                }
+
+                for i in self.x + 1..8 {
+                    for j in self.y + 1..8 {
+                        if pieces.get(&(i, j)).is_some() {
+                            break;
+                        }
+                        moves.push((i, j));
+                    }
+                }
+
+                for i in 0..self.x {
+                    for j in self.y + 1..8 {
+                        if pieces.get(&(i, j)).is_some() {
+                            break;
+                        }
+                        moves.push((i, j));
+                    }
+                }
+
+                for i in self.x + 1..8 {
+                    for j in 0..self.y {
+                        if pieces.get(&(i, j)).is_some() {
+                            break;
+                        }
+                        moves.push((i, j));
+                    }
+                }
+
+                for i in 0..self.x {
+                    for j in 0..self.y {
+                        if pieces.get(&(i, j)).is_some() {
+                            break;
+                        }
+                        moves.push((i, j));
+                    }
+                }
+
+                moves
+            }
+            PieceType::King => {
+                let mut moves = vec![];
+                for i in KING_MOVES.iter() {
+                    let pos = (self.x as i8 + i.0, self.y as i8 + i.1);
+                    if pos.0 >= 0 && pos.0  < 8 && pos.1 >= 0 && pos.1 < 8 {
+                        if pieces.get(&(pos.0 as u8, pos.1 as u8)).is_none() {
+                            moves.push((pos.0 as u8, pos.1 as u8));
+                        }
+                    }
+                }
+                moves
+            }
+        }
+    }
     pub fn is_move_valid(&self, new_position: (u8, u8), pieces: Vec<Piece>) -> bool {
         match self.piece_type {
             PieceType::Pawn => {
