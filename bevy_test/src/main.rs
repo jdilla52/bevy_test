@@ -2,6 +2,7 @@ mod board;
 mod example;
 mod pieces;
 mod ui;
+mod scorer;
 
 use crate::pieces::PiecesPlugin;
 use crate::ui::ChessUIPlugin;
