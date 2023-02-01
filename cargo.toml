@@ -1,0 +1,3 @@
+[workspace]
+members = ["bevy_test"]
+resolver = "2"
